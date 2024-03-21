@@ -1,10 +1,10 @@
-from asyncio import Queue
 import grpc
 import fed_grpc_pb2
 import fed_grpc_pb2_grpc
 import threading
 from concurrent import futures
 import aux
+from queue import Queue
 
 class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
     def __init__(self):
