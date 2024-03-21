@@ -1,0 +1,42 @@
+syntax="proto3";
+
+package main;
+
+message registerArgs {
+    string ip = 1;
+    string port = 2;
+    string cid = 3;
+}
+
+message registerOut {
+    bool connectedClient = 1;
+    int32 round = 2;
+}
+
+message sampleSize{
+    int32 size = 1;
+}
+
+message accuracy {
+    float acc = 1;
+}
+
+message weightList {
+    repeated float weight = 1;
+}
+
+message currentRound {
+    int32 round = 1;
+}
+
+message void {
+}
+
+service FederatedService {
+    rpc clientRegister(registerArgs) returns (registerOut);
+    rpc startLearning(void) returns (weightList);
+    rpc getSampleSize(void) returns (sampleSize);
+    rpc modelValidation(weightList) returns (accuracy);
+    rpc killClient(void) returns (void);
+    rpc sendRound(currentRound) returns (void);
+}
