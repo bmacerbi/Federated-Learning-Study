@@ -65,7 +65,7 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
     ## Proposta: Adicionar camada para deteceção de outliers e reduzir o impacto de modelos distantes
     ## Ideia: Manter um vetor local com uma "confiabilidade" para cada cliente
     def __FedAvg(self, clients_infos):
-        if not self.aggregated_weights.empty():
+        if len(self.aggregated_weights) != 0:
             client_distance = self.__modelsDistances(len(clients_infos), clients_infos)
             lower_limit, upper_limit = aux.inter_quarlite_rage_limits([item["distance"] for item in client_distance])
             outliers_cid = self.__identifyDistanceOutliers(lower_limit, upper_limit, client_distance)
