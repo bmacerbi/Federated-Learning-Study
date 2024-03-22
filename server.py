@@ -48,11 +48,14 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
         return distance_list
     
     def __identifyDistanceOutliers(self, lower_limit, upper_limit, distance_list):
+        print(f"Lower_distance_limit: {lower_limit} / Upper_distance_limit: {upper_limit}")
         outlier_cid = []
         for i in range(len(distance_list)):
+            print(f"CID {i}: {distance_list[i]} (distance)", end="")
             if distance_list[i] < lower_limit or distance_list[i] > upper_limit:
-                print(f"Outlier detected: CID {i}")
+                print(f" / !!! Outlier detected !!!", end="")
                 outlier_cid.append(i)
+            print()
         return outlier_cid 
 
     # Calcula a média ponderada dos pesos resultantes do treino
@@ -113,6 +116,7 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             cid_targets = aux.createRandomClientList(self.clients, n_round_clients)
 
             # Inicializando chamada de aprendizado para os clients
+            print(f"Round: {self.round}")
             thread_list = []
             q = Queue()
             for i in range(n_round_clients):
@@ -138,7 +142,7 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             acc_list = self.__callModelValidation()
     
             acc_global = sum(acc_list)/len(acc_list)
-            print(f"Round: {self.round} / Accuracy Mean: {acc_global}")
+            print(f"Accuracy Mean: {acc_global}\n")
 
 if __name__ == "__main__":
     try:
