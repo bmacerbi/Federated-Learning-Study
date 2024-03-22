@@ -67,3 +67,13 @@ def reshapeWeight(server_weight, client_weight):
 def createRandomClientList(clients_dictionary, n_round_clients):
     keys = list(clients_dictionary.keys())
     return random.sample(keys, n_round_clients)
+
+def euclidean_distances(global_weight, client_weight):
+    return np.sqrt(np.sum(np.square(np.subtract(global_weight, client_weight))))
+
+def inter_quarlite_rage_limits(distances):
+    q1 = np.percentile(distances, 25)
+    q3 = np.percentile(distances, 75)
+    iqr = q3 - q1
+
+    return q1 - 1.5*iqr, q3 + 1.5*iqr

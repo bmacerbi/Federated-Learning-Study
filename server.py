@@ -10,6 +10,7 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
     def __init__(self):
         self.clients = {}
         self.round = 0
+        self.aggregated_weights = []
 
     # Envia round atual para todos os clientes
     def __sendRound(self):
@@ -30,21 +31,40 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
         q.put([weight_list, sample_size])
 
     # Teste para nova lista de pesos global
-    def __callModelValidation(self, aggregated_weights):
+    def __callModelValidation(self):
         acc_list = []
         for cid in self.clients:
             channel = grpc.insecure_channel(self.clients[cid])
 
             client = fed_grpc_pb2_grpc.FederatedServiceStub(channel)
-            acc_list.append(client.modelValidation(fed_grpc_pb2.weightList(weight = (aggregated_weights))).acc)
+            acc_list.append(client.modelValidation(fed_grpc_pb2.weightList(weight = (self.aggregated_weights))).acc)
 
         return acc_list
     
+    def __modelsDistances(self, n_clients, weights_clients_list):
+        distance_list = []
+        for i in range(n_clients):
+            distance_list.append(aux.euclidean_distances(self.aggregated_weights, weights_clients_list[i]))
+        return distance_list
+    
+    def __identifyDistanceOutliers(self, lower_limit, upper_limit, distance_list):
+        outlier_cid = []
+        for i in range(len(distance_list)):
+            if distance_list[i] < lower_limit or distance_list[i] > upper_limit:
+                print(f"Outlier detected: CID {i}")
+                outlier_cid.append(i)
+        return outlier_cid 
+
     # Calcula a média ponderada dos pesos resultantes do treino
     ## Proposta: Adicionar camada para deteceção de outliers e reduzir o impacto de modelos distantes
     ## Ideia: Manter um vetor local com uma "confiabilidade" para cada cliente
     def __FedAvg(self, n_clients, weights_clients_list, sample_size_list):
-        aggregated_weights = []
+        if len(self.aggregated_weights) != 0:
+            distance_list = self.__modelsDistances(n_clients, weights_clients_list)
+            lower_limit, upper_limit = aux.inter_quarlite_rage_limits(distance_list)
+            outliers_cid = self.__identifyDistanceOutliers(lower_limit, upper_limit, distance_list)
+
+        self.aggregated_weights = []
         #Itercao por todos os pesos de uma lista específica
         for j in range(len(weights_clients_list[0])):
             element = 0.0
@@ -53,10 +73,8 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             for i in range(n_clients):
                 sample_sum += sample_size_list[i]
                 element += weights_clients_list[i][j] * sample_size_list[i]
-            aggregated_weights.append(element/sample_sum)  
+            self.aggregated_weights.append(element/sample_sum)
         
-        return aggregated_weights
-    
     # Encerra estado de wait_for_termination dos clients
     def killClients(self):
         for cid in self.clients:
@@ -114,10 +132,10 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
                 sample_size_list.append(thread_results[1])
 
             # Agregando lista de pesos
-            aggregated_weights = self.__FedAvg(n_round_clients, weights_clients_list, sample_size_list)
+            self.__FedAvg(n_round_clients, weights_clients_list, sample_size_list)
 
             # Validando o modelo global
-            acc_list = self.__callModelValidation(aggregated_weights)
+            acc_list = self.__callModelValidation()
     
             acc_global = sum(acc_list)/len(acc_list)
             print(f"Round: {self.round} / Accuracy Mean: {acc_global}")
