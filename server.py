@@ -1,3 +1,4 @@
+import sys
 import grpc
 import fed_grpc_pb2
 import fed_grpc_pb2_grpc
@@ -10,7 +11,7 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
     def __init__(self):
         self.clients = {}
         self.round = 0
-        self.aggregated_weights = []
+        self.global_weights = []
         self.clients_models = {}
 
     # Envia round atual para todos os clientes
@@ -38,43 +39,39 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             channel = grpc.insecure_channel(self.clients[cid])
 
             client = fed_grpc_pb2_grpc.FederatedServiceStub(channel)
-            acc_list.append(client.modelValidation(fed_grpc_pb2.weightList(weight = (self.aggregated_weights))).acc)
+            acc_list.append(client.modelValidation(fed_grpc_pb2.weightList(weight = (self.global_weights))).acc)
 
         return acc_list
     
     def __modelsDistances(self):
         distance_list = {}
         for cid in self.clients_models:
-            distance_list[cid] = aux.euclidean_distances(self.aggregated_weights, self.clients_models[cid]["weights"])
+            distance_list[cid] = aux.euclidean_distances(self.global_weights, self.clients_models[cid]["weights"])
         return distance_list
     
     def __identifyDistanceOutliers(self, lower_limit, upper_limit, client_distance):
-        print(f"Lower_distance_limit: {lower_limit} / Upper_distance_limit: {upper_limit}")
         outlier_cid = []
         for cid in client_distance:
-            print(f"CID {cid}: {client_distance[cid]} (distance)", end="")
             if client_distance[cid] < lower_limit or client_distance[cid] > upper_limit:
-                print(f" / !!! Outlier detected !!!", end="")
                 outlier_cid.append(cid)
-            print()
         return outlier_cid
     
     def __removeOutlier(self, outliers):
         for cid in outliers:
-            print(f"CID {cid}: Outlier detected / Removing from available clients...")
+            print(f"CID {cid} was identify as an outlier / Removing from available clients...")
             self.clients.pop(cid)
             self.clients_models.pop(cid)
 
     # Calcula a média ponderada dos pesos resultantes do treino
     ## Proposta: Adicionar camada para deteceção de outliers e reduzir o impacto de modelos distantes
     ## Ideia: Manter um vetor local com uma "confiabilidade" para cada cliente
-    def __FedAvg(self):
-        if len(self.aggregated_weights) != 0:
+    def __fedAvg(self):
+        if len(self.global_weights) != 0:
             client_distance = self.__modelsDistances()
             lower_limit, upper_limit = aux.inter_quarlite_rage_limits(list(client_distance.values()))
             self.__removeOutlier(self.__identifyDistanceOutliers(lower_limit, upper_limit, client_distance))
 
-        self.aggregated_weights = []
+        self.global_weights = []
         #Itercao por todos os pesos de uma lista específica
         for j in range(len(self.clients_models[next(iter(self.clients_models))]["weights"])):
             element = 0.0
@@ -83,7 +80,7 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             for cid in self.clients_models:
                 sample_sum += self.clients_models[cid]["sample_size"]
                 element += self.clients_models[cid]["weights"][j] * self.clients_models[cid]["sample_size"]
-            self.aggregated_weights.append(element/sample_sum)
+            self.global_weights.append(element/sample_sum)
         
     # Encerra estado de wait_for_termination dos clients
     def killClients(self):
@@ -146,7 +143,7 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
                 }
 
             # Agregando lista de pesos
-            self.__FedAvg()
+            self.__fedAvg()
 
             # Validando o modelo global
             acc_list = self.__callModelValidation()
@@ -155,9 +152,9 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
 
 if __name__ == "__main__":
     try:
-        n_round_clients = 20
-        min_clients = 20
-        max_rounds = 4
+        n_round_clients = int(sys.argv[1])
+        min_clients = int(sys.argv[2])
+        max_rounds = int(sys.argv[3])
 
     except IndexError:
         print("Missing argument! You need to pass: [clientsRound, minClients, maxRounds]")
