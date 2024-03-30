@@ -59,8 +59,9 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
     def __removeOutlier(self, outliers):
         for cid in outliers:
             print(f"CID {cid} was identify as an outlier / Removing from available clients...")
-            self.clients.pop(cid)
             self.clients_models.pop(cid)
+            client_ip = self.clients.pop(cid)
+            self.__killClient(client_ip)
 
     # Calcula a média ponderada dos pesos resultantes do treino
     ## Proposta: Adicionar camada para deteceção de outliers e reduzir o impacto de modelos distantes
@@ -85,10 +86,13 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
     # Encerra estado de wait_for_termination dos clients
     def killClients(self):
         for cid in self.clients:
-            channel = grpc.insecure_channel(self.clients[cid])
+            self.__killClient(self.clients[cid])
 
-            client = fed_grpc_pb2_grpc.FederatedServiceStub(channel)
-            client.killClient(fed_grpc_pb2.void())
+    def __killClient(self, client_ip):
+        channel = grpc.insecure_channel(client_ip)
+
+        client = fed_grpc_pb2_grpc.FederatedServiceStub(channel)
+        client.killClient(fed_grpc_pb2.void())
 
     def clientRegister(self, request, context):
         ip = request.ip
