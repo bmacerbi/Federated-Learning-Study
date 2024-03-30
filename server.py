@@ -11,6 +11,7 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
         self.clients = {}
         self.round = 0
         self.aggregated_weights = []
+        self.clients_models = {}
 
     # Envia round atual para todos os clientes
     def __sendRound(self):
@@ -41,44 +42,47 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
 
         return acc_list
     
-    def __modelsDistances(self, n_clients, clients_infos):
-        distance_list = []
-        for i in range(n_clients):
-            distance_list.append({
-                "cid" : clients_infos[i]["cid"],
-                "distance": aux.euclidean_distances(self.aggregated_weights, clients_infos[i]["weights"])
-                })
+    def __modelsDistances(self):
+        distance_list = {}
+        for cid in self.clients_models:
+            distance_list[cid] = aux.euclidean_distances(self.aggregated_weights, self.clients_models[cid]["weights"])
         return distance_list
     
     def __identifyDistanceOutliers(self, lower_limit, upper_limit, client_distance):
         print(f"Lower_distance_limit: {lower_limit} / Upper_distance_limit: {upper_limit}")
         outlier_cid = []
-        for client in client_distance:
-            print(f"CID {client['cid']}: {client['distance']} (distance)", end="")
-            if client["distance"] < lower_limit or client["distance"] > upper_limit:
+        for cid in client_distance:
+            print(f"CID {cid}: {client_distance[cid]} (distance)", end="")
+            if client_distance[cid] < lower_limit or client_distance[cid] > upper_limit:
                 print(f" / !!! Outlier detected !!!", end="")
-                outlier_cid.append(client["cid"])
+                outlier_cid.append(cid)
             print()
-        return outlier_cid 
+        return outlier_cid
+    
+    def __removeOutlier(self, outliers):
+        for cid in outliers:
+            print(f"CID {cid}: Outlier detected / Removing from available clients...")
+            self.clients.pop(cid)
+            self.clients_models.pop(cid)
 
     # Calcula a média ponderada dos pesos resultantes do treino
     ## Proposta: Adicionar camada para deteceção de outliers e reduzir o impacto de modelos distantes
     ## Ideia: Manter um vetor local com uma "confiabilidade" para cada cliente
-    def __FedAvg(self, clients_infos):
+    def __FedAvg(self):
         if len(self.aggregated_weights) != 0:
-            client_distance = self.__modelsDistances(len(clients_infos), clients_infos)
-            lower_limit, upper_limit = aux.inter_quarlite_rage_limits([item["distance"] for item in client_distance])
-            outliers_cid = self.__identifyDistanceOutliers(lower_limit, upper_limit, client_distance)
+            client_distance = self.__modelsDistances()
+            lower_limit, upper_limit = aux.inter_quarlite_rage_limits(list(client_distance.values()))
+            self.__removeOutlier(self.__identifyDistanceOutliers(lower_limit, upper_limit, client_distance))
 
         self.aggregated_weights = []
         #Itercao por todos os pesos de uma lista específica
-        for j in range(len(clients_infos[0]["weights"])):
+        for j in range(len(self.clients_models[next(iter(self.clients_models))]["weights"])):
             element = 0.0
             sample_sum = 0.0
             #Iteracao para todos os clientes presentes
-            for i in range(len(clients_infos)):
-                sample_sum += clients_infos[i]["sample_size"]
-                element += clients_infos[i]["weights"][j] * clients_infos[i]["sample_size"]
+            for cid in self.clients_models:
+                sample_sum += self.clients_models[cid]["sample_size"]
+                element += self.clients_models[cid]["weights"][j] * self.clients_models[cid]["sample_size"]
             self.aggregated_weights.append(element/sample_sum)
         
     # Encerra estado de wait_for_termination dos clients
@@ -103,19 +107,22 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
         return fed_grpc_pb2.registerOut(connectedClient = (True), round = (self.round))
     
     def startServer(self, n_round_clients, min_clients, max_rounds):
-        while self.round < max_rounds:
-            #Verificando se o mínimo de clientes foi estabelecido
-            if len(self.clients) < min_clients:
-                print("Waiting for the minimum number of clients to connect...")
-                while len(self.clients) < min_clients:
-                    continue
+        #Verificando se o mínimo de clientes foi estabelecido
+        if len(self.clients) < min_clients:
+            print("Waiting for the minimum number of clients to connect...")
+            while len(self.clients) < min_clients:
+                continue
 
-                print("The minimum number of clients has been reached.")
-            
+            print("The minimum number of clients has been reached.")
+
+        while self.round < max_rounds:           
             self.round += 1
             self.__sendRound()
 
             # Criando lista de clientes alvo
+            ## Tratando caso de cliente ser removido
+            if n_round_clients > len(self.clients):
+                n_round_clients = len(self.clients)
             cid_targets = aux.createRandomClientList(self.clients, n_round_clients)
 
             # Inicializando chamada de aprendizado para os clients
@@ -130,17 +137,16 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
                 thread.join()
 
             # Capturando os resultados de treinamento de todos os clients
-            clients_infos = []
+            self.clients_models = {}
             while not q.empty():
                 thread_results = q.get()
-                clients_infos.append({
+                self.clients_models[thread_results[2]] = {
                     "weights": thread_results[0],
                     "sample_size": thread_results[1],
-                    "cid": thread_results[2]
-                })
+                }
 
             # Agregando lista de pesos
-            self.__FedAvg(clients_infos)
+            self.__FedAvg()
 
             # Validando o modelo global
             acc_list = self.__callModelValidation()
@@ -149,8 +155,8 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
 
 if __name__ == "__main__":
     try:
-        n_round_clients = 10
-        min_clients = 10
+        n_round_clients = 20
+        min_clients = 20
         max_rounds = 4
 
     except IndexError:
