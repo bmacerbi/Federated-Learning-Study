@@ -90,19 +90,11 @@ class FedClient(fed_grpc_pb2_grpc.FederatedServiceServicer):
         else:
             print("This client couldn't connect with the server")
 
-
-if __name__ == '__main__':
-    cid = -1
+def main(cid):
     input_shape = (28, 28, 1)
     num_classes = 10
     server_adress = 'localhost:8080'
     client_ip = '[::]'
-
-    try:
-        cid = sys.argv[1]
-    except IndexError:
-        print("Missing argument! You need to pass: ClientId")
-        exit()
 
     # Carregando e dividindo dataSet
     x_train, y_train = aux.load_mnist_byCid(cid)
@@ -116,3 +108,14 @@ if __name__ == '__main__':
 
     fed_client = FedClient(cid, x_train, x_test, y_train, y_test, model, server_adress, client_ip)
     fed_client.runClient()
+
+if __name__ == '__main__':
+    cid = -1
+
+    try:
+        cid = sys.argv[1]
+    except IndexError:
+        print("Missing argument! You need to pass: ClientId")
+        exit()
+
+    main(cid)
