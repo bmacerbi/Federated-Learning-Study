@@ -10,15 +10,13 @@ import sys
 def deleteAllFolder(path):
     for file_name in os.listdir(path):
         file_path = os.path.join(path, file_name)
-        if os.path.isfile(file_path):
-            os.remove(file_path)
-        elif os.path.isdir(file_path):
+        if os.path.isdir(file_path):
             shutil.rmtree(file_path)
 
 def downloadSaveData():
     # Set the URLs for the train data
-    train_data_url = 'http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz'
-    train_labels_url = 'http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz'
+    # train_data_url = 'http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz'
+    # train_labels_url = 'http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz'
 
     # Set the file names for the train data
     train_data_file = 'train-images-idx3-ubyte.gz'
@@ -35,8 +33,8 @@ def downloadSaveData():
         os.makedirs(data_dir)
 
     # Download the train data
-    urllib.request.urlretrieve(train_data_url, os.path.join(data_dir, train_data_file))
-    urllib.request.urlretrieve(train_labels_url, os.path.join(data_dir, train_labels_file))
+    # urllib.request.urlretrieve(train_data_url, os.path.join(data_dir, train_data_file))
+    # urllib.request.urlretrieve(train_labels_url, os.path.join(data_dir, train_labels_file))
 
     # Load MNIST data
     with gzip.open(os.path.join(data_dir, train_data_file), 'rb') as f:
