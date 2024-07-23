@@ -13,6 +13,9 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
         self.round = 0
         self.global_weights = []
         self.clients_models = {}
+        self.reliability = {}
+        self.k = 4 ##
+        self.variation = 1.0/self.k
 
     # Envia round atual para todos os clientes
     def __sendRound(self):
@@ -49,28 +52,43 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             distance_list[cid] = aux.euclidean_distances(self.global_weights, self.clients_models[cid]["weights"])
         return distance_list
     
-    def __identifyDistanceOutliers(self, lower_limit, upper_limit, client_distance):
+    def __classifieDistance(self, lower_limit, upper_limit, client_distance):
         outlier_cid = []
+        not_outlier = []
         for cid in client_distance:
             if client_distance[cid] < lower_limit or client_distance[cid] > upper_limit:
                 outlier_cid.append(cid)
-        return outlier_cid
+            else:
+                not_outlier.append(cid)
+        return outlier_cid, not_outlier
     
-    def __removeOutlier(self, outliers):
+    def __decreaseReliability(self, outliers):
         for cid in outliers:
-            print(f"CID {cid} was identify as an outlier / Removing from available clients...")
-            self.clients_models.pop(cid)
-            client_ip = self.clients.pop(cid)
-            self.__killClient(client_ip)
+            print(f"Removing credibility from client CID {cid}")
+            self.reliability[cid] -= self.variation 
+            if self.reliability[cid] == 0:
+                print(f"CID {cid} lost all the credibility / Removing from available clients...")
+                self.clients_models.pop(cid)
+                client_ip = self.clients.pop(cid)
+                self.__killClient(client_ip)
 
-    # Calcula a média ponderada dos pesos resultantes do treino
-    ## Proposta: Adicionar camada para deteceção de outliers e reduzir o impacto de modelos distantes
-    ## Ideia: Manter um vetor local com uma "confiabilidade" para cada cliente
+
+    def __increaseReliability(self, not_outliers):
+        for cid in not_outliers:
+            if self.reliability[cid] != 1:
+                print(f"Incrising credibillity from client CID {cid}")
+                self.reliability[cid] += self.variation
+
+    def __handleOutliers(self):
+        client_distance = self.__modelsDistances()
+        lower_limit, upper_limit = aux.inter_quarlite_rage_limits(list(client_distance.values()))
+        outliers, not_outliers = self.__classifieDistance(lower_limit, upper_limit, client_distance)
+        self.__decreaseReliability(outliers)
+        self.__increaseReliability(not_outliers)
+
     def __fedAvg(self):
         if len(self.global_weights) != 0:
-            client_distance = self.__modelsDistances()
-            lower_limit, upper_limit = aux.inter_quarlite_rage_limits(list(client_distance.values()))
-            self.__removeOutlier(self.__identifyDistanceOutliers(lower_limit, upper_limit, client_distance))
+            self.__handleOutliers()
 
         self.global_weights = []
         #Itercao por todos os pesos de uma lista específica
@@ -79,8 +97,9 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             sample_sum = 0.0
             #Iteracao para todos os clientes presentes
             for cid in self.clients_models:
-                sample_sum += self.clients_models[cid]["sample_size"]
-                element += self.clients_models[cid]["weights"][j] * self.clients_models[cid]["sample_size"]
+                sample_sum += self.clients_models[cid]["sample_size"] * self.reliability[cid]
+                element += self.clients_models[cid]["weights"][j] * self.clients_models[cid]["sample_size"] * self.reliability[cid]
+            
             self.global_weights.append(element/sample_sum)
         
     # Encerra estado de wait_for_termination dos clients
@@ -104,6 +123,7 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             return fed_grpc_pb2.registerOut(connectedClient = (False), round = (self.round))
         
         self.clients[cid] = ip + ":" + port
+        self.reliability[cid] = 1.0
         print(f"Client {cid} registered!")
         return fed_grpc_pb2.registerOut(connectedClient = (True), round = (self.round))
     
