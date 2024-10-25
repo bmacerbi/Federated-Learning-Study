@@ -67,6 +67,9 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             print(f"Removing credibility from client CID {cid}")
             self.reliability[cid] -= self.variation 
             if self.reliability[cid] == 0:
+                if output_file_exclusions:
+                    with open(output_file_exclusions, 'a') as f:
+                        f.write(f'{cid}, {self.round}\n')
                 print(f"CID {cid} lost all the credibility / Removing from available clients...")
                 self.clients_models.pop(cid)
                 client_ip = self.clients.pop(cid)
@@ -172,9 +175,17 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             # Validando o modelo global
             acc_list = self.__callModelValidation()
             acc_global = sum(acc_list)/len(acc_list)
-            print(f"Accuracy Mean: {acc_global}\n")
+
+            if output_file_accuracy:
+                with open(output_file_accuracy, 'a') as f:
+                    f.write(f'{acc_global}\n')
 
 if __name__ == "__main__":
+    global output_file_accuracy
+    global output_file_exclusions
+
+    output_file_accuracy = 'testes/confiabilityBased/30infectedAcc'
+    output_file_exclusions = 'testes/confiabilityBased/30infectedExclusions'
     try:
         n_round_clients = int(sys.argv[1])
         min_clients = int(sys.argv[2])
