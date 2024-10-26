@@ -184,8 +184,8 @@ if __name__ == "__main__":
     global output_file_accuracy
     global output_file_exclusions
 
-    output_file_accuracy = 'testes/confiabilityBased/30infectedAcc'
-    output_file_exclusions = 'testes/confiabilityBased/30infectedExclusions'
+    output_file_accuracy = 'testes/confiabilityBased/notCoordenate/30infectedAcc'
+    output_file_exclusions = 'testes/confiabilityBased/notCoordenate/30infectedExclusions'
     try:
         n_round_clients = int(sys.argv[1])
         min_clients = int(sys.argv[2])
