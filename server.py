@@ -111,10 +111,12 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
             self.__killClient(self.clients[cid])
 
     def __killClient(self, client_ip):
-        channel = grpc.insecure_channel(client_ip)
-
-        client = fed_grpc_pb2_grpc.FederatedServiceStub(channel)
-        client.killClient(fed_grpc_pb2.void())
+        try:
+            channel = grpc.insecure_channel(client_ip)
+            client = fed_grpc_pb2_grpc.FederatedServiceStub(channel)
+            client.killClient(fed_grpc_pb2.void())
+        except grpc.RpcError as e:
+            print(f"Error killing client at {client_ip}: {e}")
 
     def clientRegister(self, request, context):
         ip = request.ip
@@ -184,8 +186,8 @@ if __name__ == "__main__":
     global output_file_accuracy
     global output_file_exclusions
 
-    output_file_accuracy = 'testes/confiabilityBased/notCoordenate/30infectedAcc'
-    output_file_exclusions = 'testes/confiabilityBased/notCoordenate/30infectedExclusions'
+    output_file_accuracy = 'testes/nonIdd/coord/10InfecAcc'
+    output_file_exclusions = 'testes/nonIdd/coord/10InfecEx'
     try:
         n_round_clients = int(sys.argv[1])
         min_clients = int(sys.argv[2])
