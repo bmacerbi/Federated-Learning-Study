@@ -5,10 +5,7 @@ import fed_grpc_pb2_grpc
 import fed_grpc_pb2
 from sklearn.model_selection import train_test_split
 from keras.utils import to_categorical
-import os
-import signal
 from concurrent import futures
-
 
 class FedClient(fed_grpc_pb2_grpc.FederatedServiceServicer):
     def __init__(self, cid, x_train, x_test, y_train, y_test, model, server_adress, client_ip):
@@ -91,22 +88,41 @@ class FedClient(fed_grpc_pb2_grpc.FederatedServiceServicer):
             print("This client couldn't connect with the server")
 
 def main(cid):
-    input_shape = (28, 28, 1)
+    # Configuration
+    dataset = 'cifar10'  # Change to 'mnist' for MNIST dataset
+    
+    if dataset == 'cifar10':
+        input_shape = (32, 32, 3)
+    else:
+        input_shape = (28, 28, 1)
+        
     num_classes = 10
-    server_adress = 'localhost:8080'
+    server_address = 'localhost:8080'
     client_ip = '[::]'
 
-    # Carregando e dividindo dataSet
-    x_train, y_train = aux.load_mnist_byCid(cid)
-    x_train, x_test, y_train, y_test = train_test_split(x_train, y_train, test_size=0.2, random_state=42)
+    # Load and split data
+    x_train, y_train = aux.load_data_byCid(cid, dataset)
+    x_train, x_test, y_train, y_test = train_test_split(
+        x_train, y_train, test_size=0.2, random_state=42
+    )
 
-    # One-hot encode labels
+    # Ensure labels are one-hot encoded
     y_train = to_categorical(y_train, num_classes)
     y_test = to_categorical(y_test, num_classes)
 
-    model = aux.define_model(input_shape,num_classes)
-
-    fed_client = FedClient(cid, x_train, x_test, y_train, y_test, model, server_adress, client_ip)
+    # Verify data shapes
+    print(f"Training data shape: {x_train.shape}")
+    print(f"Training labels shape: {y_train.shape}")
+    
+    # Create model
+    model = aux.define_model(input_shape, num_classes, dataset)
+    model.summary()  # Print model summary to verify architecture
+    
+    # Create and run client
+    fed_client = FedClient(
+        cid, x_train, x_test, y_train, y_test, 
+        model, server_address, client_ip
+    )
     fed_client.runClient()
 
 if __name__ == '__main__':
