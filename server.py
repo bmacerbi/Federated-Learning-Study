@@ -14,7 +14,7 @@ class FedServer(fed_grpc_pb2_grpc.FederatedServiceServicer):
         self.global_weights = []
         self.clients_models = {}
         self.reliability = {}
-        self.k = 4 ##
+        self.k = 3 ##
         self.variation = 1.0/self.k
 
     # Envia round atual para todos os clientes
@@ -186,8 +186,8 @@ if __name__ == "__main__":
     global output_file_accuracy
     global output_file_exclusions
 
-    output_file_accuracy = 'testes/cifar/notCoord/30infected'
-    output_file_exclusions = 'testes/cifar/notCoord/30infectedEx'
+    output_file_accuracy = 'testes/cifar/nonIdd/notCoord/10infected_k3'
+    output_file_exclusions = 'testes/cifar/nonIdd/notCoord/10infectedEx_k3'
 
     try:
         n_round_clients = int(sys.argv[1])
