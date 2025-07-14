@@ -47,8 +47,8 @@ def flip_folders_in_range(base_path, num_clients):
     for i in range(num_clients + 1):
         client_dir = os.path.join(base_path, f'client_{i}')
         if os.path.exists(client_dir):
-            # flip_all_folders_coordenate(client_dir) 
-            flip_all_folders_not_coordenate(client_dir, i + 1)
+            flip_all_folders_coordenate(client_dir) 
+            # flip_all_folders_not_coordenate(client_dir, i + 1)
         else:
             print(f"{client_dir} does not exist")
 
