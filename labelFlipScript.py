@@ -1,6 +1,5 @@
 import os
 import sys
-import shutil
 
 def flip_all_folders_not_coordenate(base_dir, shift_amount):
     folder_names = [str(i) for i in range(10)]
@@ -43,21 +42,25 @@ def flip_all_folders_coordenate(base_dir):
 
     print(f"Successfully flipped all folders in {base_dir}")
 
-def flip_folders_in_range(base_path, num_clients):
+def flip_folders_in_range(base_path, num_clients, use_coordenate):
     for i in range(num_clients + 1):
         client_dir = os.path.join(base_path, f'client_{i}')
         if os.path.exists(client_dir):
-            # flip_all_folders_coordenate(client_dir) 
-            flip_all_folders_not_coordenate(client_dir, i + 1)
+            if use_coordenate:
+                flip_all_folders_coordenate(client_dir)
+            else:
+                flip_all_folders_not_coordenate(client_dir, i + 1)
         else:
             print(f"{client_dir} does not exist")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python script_name.py <num_clients>")
+    if len(sys.argv) != 4:
+        print("Usage: python script_name.py <base_directory> <num_clients> <use_coordenate>")
+        print("<use_coordenate> should be 'true' or 'false'")
         sys.exit(1)
     
-    base_directory = "cifar10_data/"
-    num_clients = int(sys.argv[1])
+    base_directory = sys.argv[1]
+    num_clients = int(sys.argv[2])
+    use_coordenate = sys.argv[3].lower() == 'true'
 
-    flip_folders_in_range(base_directory, num_clients)
+    flip_folders_in_range(base_directory, num_clients, use_coordenate)
