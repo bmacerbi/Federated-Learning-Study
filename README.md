@@ -34,7 +34,7 @@ Script para alterar rótulos dos dados (**label flipping**):
 python labelFlipScript.py base_directory num_clients use_coordinate  
 ```
 
-> **Observação:** `base_directory` deve ser `cifar10_data` ou `mnist_data`.
+> **Observação:** `base_directory` deve ser `cifar10_data` ou `mnist_data` e o valor de use_coordenate deve ser "true" caso seja de interesse que a flipagem seja coordenada
 
 ---
 
@@ -51,7 +51,7 @@ python server.py 5 5 100
 ---
 
 ## Inicializando os Clientes
-Antes de iniciar, ajuste a **linha 92** do `client.py` definindo o dataset (`cifar10` ou `mnist`).  
+Antes de iniciar, ajuste a **linha 92** do `client.py` definindo o dataset (`cifar10` ou `mnist`) a depender da base de dados inicialmente criada. 
 
 Formas de inicialização:
 
